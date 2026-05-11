@@ -5,7 +5,7 @@ import math
 import pygame as pg
 
 from core import config as C
-from core.entities import Asteroid, BlackHole, Bullet, Ship, UFO, ShieldPickup, WeaponPickup
+from core.entities import Asteroid, BlackHole, Bullet, Ship, UFO, ShieldPickup, WeaponPickup, EMPPickup
 from core.scene import SceneState
 
 
@@ -32,6 +32,7 @@ class Renderer:
             ShieldPickup: self._draw_shield_pickup,
             WeaponPickup: self._draw_weapon_pickup,
             BlackHole: self._draw_black_hole,
+            EMPPickup: self._draw_emp_pickup,
         }
 
     def clear(self) -> None:
@@ -300,5 +301,35 @@ class Renderer:
             self.config.BLACK,
             (cx, cy),
             max(4, black_hole.r - 6),
+        )
+    
+    def _draw_emp_pickup(self, pickup: EMPPickup) -> None:
+        if not getattr(pickup, "_draw_visible", True):
+            return
+
+        col = getattr(
+            pickup,
+            "_draw_color",
+            C.EMP_PICKUP_COLOR
+        )
+
+        cx, cy = int(pickup.pos.x), int(pickup.pos.y)
+
+        r = int(pickup.r)
+
+        pg.draw.circle(
+            self.screen,
+            col,
+            (cx, cy),
+            r,
+            width=2,
+        )
+
+        pg.draw.line(
+            self.screen,
+            col,
+            (cx - r // 2, cy),
+            (cx + r // 2, cy),
+            2
         )
         

@@ -450,3 +450,52 @@ class BlackHole(pg.sprite.Sprite):
     def update(self, dt: float) -> None:
         self._pulse = (self._pulse + dt * 2.5) % (2 * math.pi)
         self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+class EMPPickup(pg.sprite.Sprite):
+
+    def __init__(self, pos: Vec) -> None:
+        super().__init__()
+
+        self.pos = Vec(pos)
+        self.vel = rand_unit_vec() * uniform(20.0, 45.0)
+
+        self._base_r = int(C.EMP_PICKUP_RADIUS)
+        self.r = self._base_r
+
+        self.ttl = float(C.EMP_PICKUP_LIFETIME)
+
+        self._draw_color = C.EMP_PICKUP_COLOR
+        self._draw_visible = True
+
+        self.rect = pg.Rect(0, 0, self.r * 2, self.r * 2)
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+    def update(self, dt: float) -> None:
+        self.pos += self.vel * dt
+        self.pos = wrap_pos(self.pos)
+
+        self.ttl -= dt
+
+        if self.ttl <= 0.0:
+            self.kill()
+            return
+
+        warn = float(C.EMP_PICKUP_WARN_TIME)
+
+        if self.ttl > warn:
+            self._draw_color = C.EMP_PICKUP_COLOR
+            self._draw_visible = True
+            self.r = self._base_r
+        else:
+            urgency = 1.0 - max(0.0, self.ttl / warn)
+
+            self.r = int(self._base_r * (1.0 - urgency * 0.45))
+
+            blink_rate = 10.0 + urgency * 18.0
+
+            self._draw_visible = int(self.ttl * blink_rate) % 2 == 0
+
+        side = max(4, self.r * 2)
+
+        self.rect = pg.Rect(0, 0, side, side)
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
