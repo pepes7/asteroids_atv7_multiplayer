@@ -509,8 +509,3 @@ class World:
         for pid in self.ships.keys():
             if pid != source_player_id:
                 self.emp_timers[pid] = C.EMP_DURATION
-        
-    def activate_emp(self, source_player_id: int) -> None:
-        for pid in self.ships.keys():
-            if pid != source_player_id:
-                self.emp_timers[pid] = C.EMP_DURATION
