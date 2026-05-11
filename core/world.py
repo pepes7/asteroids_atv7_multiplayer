@@ -9,7 +9,7 @@ import pygame as pg
 from core import config as C
 from core.collisions import CollisionManager
 from core.commands import PlayerCommand
-from core.entities import Asteroid, BlackHole, Ship, UFO, WeaponPickup
+from core.entities import Asteroid, BlackHole, Ship, UFO, WeaponPickup, EMPPickup
 from core.utils import Vec, rand_edge_pos
 
 PlayerId = int
@@ -46,6 +46,10 @@ class World:
         self.shield_spawn_timer = float(C.SHIELD_SPAWN_DELAY_MIN)
         self.black_hole_spawn_timer = float(C.BLACK_HOLE_SPAWN_DELAY_MIN)
 
+        self.emp_pickups = pg.sprite.Group()
+        self.emp_spawn_timer = float(C.EMP_SPAWN_DELAY_MIN)
+        self.emp_timers = {}
+        
         self.spawn_player(C.LOCAL_PLAYER_ID)
         self.spawn_player(C.LOCAL_PLAYER_2_ID)
 
@@ -72,6 +76,8 @@ class World:
         self.scores[player_id] = 0
         self.lives[player_id] = C.START_LIVES
         self.all_sprites.add(ship)
+        
+        self.emp_timers[player_id] = 0.0
 
     def get_ship(self, player_id: PlayerId) -> Ship | None:
         return self.ships.get(player_id)
@@ -124,6 +130,10 @@ class World:
         if self.game_over:
             return
 
+        for pid in self.emp_timers:
+            if self.emp_timers[pid] > 0:
+                self.emp_timers[pid] -= dt
+
         self._apply_commands(dt, commands_by_player_id)
         self._apply_black_hole_gravity(dt)
 
@@ -165,7 +175,18 @@ class World:
                     C.BLACK_HOLE_SPAWN_DELAY_MIN,
                     C.BLACK_HOLE_SPAWN_DELAY_MAX,
                 )
+    
+        if self.wave > 0:
+            self.emp_spawn_timer -= dt
+            if self.emp_spawn_timer <= 0.0:
+                if len(self.emp_pickups) < C.EMP_MAX_PICKUPS:
+                    self.spawn_emp_pickup()
 
+                self.emp_spawn_timer = uniform(
+                    C.EMP_SPAWN_DELAY_MIN,
+                    C.EMP_SPAWN_DELAY_MAX,
+                )
+                
     def _apply_commands(
         self,
         dt: float,
@@ -181,6 +202,15 @@ class World:
                 self.scores[player_id] = max(
                     0,
                     self.scores[player_id] - C.HYPERSPACE_COST,
+                )
+
+            if self.emp_timers.get(player_id, 0) > 0:
+                cmd = PlayerCommand(
+                    rotate_left=cmd.rotate_left,
+                    rotate_right=cmd.rotate_right,
+                    thrust=cmd.thrust,
+                    shoot=False,
+                    hyperspace=cmd.hyperspace,
                 )
 
             new_bullets = ship.apply_command(cmd, dt, self.bullets)
@@ -289,6 +319,16 @@ class World:
             for wp in wp_hit:
                 ship.apply_weapon(wp.mode)
                 self.events.append("shield_up")
+                
+        for player_id, ship in self.ships.items():
+            emp_hit = pg.sprite.spritecollide(
+                ship,
+                self.emp_pickups,
+                True
+            )
+
+            if emp_hit:
+                self.activate_emp(player_id)
 
         result = self._collision_mgr.resolve(
             self.ships,
@@ -451,3 +491,26 @@ class World:
         self.freeze_active = True
         self.freeze_timer = duration
         
+    def spawn_emp_pickup(self) -> None:
+        if len(self.emp_pickups) >= C.EMP_MAX_PICKUPS:
+            return
+
+        pos = Vec(
+            uniform(60, C.WIDTH - 60),
+            uniform(60, C.HEIGHT - 60)
+        )
+
+        emp = EMPPickup(pos)
+
+        self.emp_pickups.add(emp)
+        self.all_sprites.add(emp)
+        
+    def activate_emp(self, source_player_id: int) -> None:
+        for pid in self.ships.keys():
+            if pid != source_player_id:
+                self.emp_timers[pid] = C.EMP_DURATION
+        
+    def activate_emp(self, source_player_id: int) -> None:
+        for pid in self.ships.keys():
+            if pid != source_player_id:
+                self.emp_timers[pid] = C.EMP_DURATION
